@@ -436,13 +436,18 @@ class GraphQLManager(ErrorHandlerMixin):
         # Ensure we are using the registry-applied model (with extensions) when available
         try:
             if hasattr(self, "model_registry") and self.model_registry:
-                try:
-                    applied = self.model_registry.apply(model_class)
-                    # Use the applied model (this may be the same object)
-                    model_class = applied or model_class
-                except Exception:
-                    # If apply fails for any reason, continue with the original model
-                    pass
+                apply_fn = getattr(self.model_registry, "apply", None)
+                if callable(apply_fn):
+                    try:
+                        applied_model = apply_fn(model_class)
+                        # Validate the returned object before using it
+                        if isinstance(applied_model, type) and hasattr(
+                            applied_model, "model_fields"
+                        ):
+                            model_class = applied_model
+                    except Exception:
+                        # If apply fails for any reason, continue with the original model
+                        pass
         except Exception:
             # Defensive: if anything unexpected happens, ignore and proceed
             pass
